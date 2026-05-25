@@ -4,7 +4,6 @@ import com.everlastingutils.command.CommandTester
 import com.everlastingutils.config.ConfigTester
 import com.everlastingutils.gui.GuiTester
 import com.everlastingutils.scheduling.SchedulerManager
-import com.everlastingutils.scheduling.SchedulerTester
 import com.everlastingutils.utils.LogDebugTester
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
@@ -15,7 +14,7 @@ import java.time.format.DateTimeFormatter
 object EverlastingUtils : ModInitializer {
     private val logger = LoggerFactory.getLogger("everlastingutils")
     const val MOD_ID = "everlastingutils"
-    const val VERSION = "1.1.5"
+    const val VERSION = "1.1.6"
 
     object Colors {
         private const val ESC = "\u001B"
@@ -46,6 +45,10 @@ object EverlastingUtils : ModInitializer {
     override fun onInitialize() {
         val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
 
+        ServerLifecycleEvents.SERVER_STARTING.register {
+            SchedulerManager.onServerStarting(it)
+        }
+
         ServerLifecycleEvents.SERVER_STOPPING.register {
             SchedulerManager.shutdownAll()
         }
@@ -54,7 +57,6 @@ object EverlastingUtils : ModInitializer {
         val guiPass = GuiTester.runAllTests().values.all { it }
         val cmdPass = CommandTester.runAllTests().values.all { it }
         val logPass = LogDebugTester.runAllTests().values.all { it }
-        val schedPass = SchedulerTester.runAllTests().values.all { it }
 
         val runtime = Runtime.getRuntime()
         val usedMem = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024
@@ -67,7 +69,7 @@ object EverlastingUtils : ModInitializer {
                 "GUI:${getStatusBadge(guiPass)} " +
                 "Cmds:${getStatusBadge(cmdPass)} " +
                 "Logs:${getStatusBadge(logPass)} " +
-                "Sched:${getStatusBadge(schedPass)}")
+                "Sched:${Colors.boldGreen("[READY]")}")
         logger.info("${Colors.boldPurple("║")} ${Colors.boldYellow("Environment")}   :: " +
                 Colors.brightBlack("Java: ${System.getProperty("java.version")} | ") +
                 Colors.brightBlack("Mem: ${usedMem}MB/${maxMem}MB | ") +

@@ -115,6 +115,7 @@ object SchedulerManager {
 
         val serverRef = WeakReference(server)
         val futureHolder = arrayOfNulls<ScheduledFuture<*>>(1)
+        val pendingSyncExecution = AtomicBoolean(false)
 
         val future = try {
             sharedScheduler.scheduleWithFixedDelay({
@@ -133,18 +134,27 @@ object SchedulerManager {
                         futureHolder[0]?.let { untrackAndCancel(id, it) }
                     }
                 } else {
+                    if (!pendingSyncExecution.compareAndSet(false, true)) {
+                        return@scheduleWithFixedDelay
+                    }
                     try {
                         srv.execute {
-                            if (srv.isRunning && !srv.isStopped && !isShuttingDown.get()) {
+                            try {
+                                if (!srv.isRunning || srv.isStopped || isShuttingDown.get()) {
+                                    return@execute
+                                }
                                 try {
                                     task()
                                 } catch (t: Throwable) {
                                     logger.error("Sync Task '$id' threw exception - cancelling", t)
                                     futureHolder[0]?.let { untrackAndCancel(id, it) }
                                 }
+                            } finally {
+                                pendingSyncExecution.set(false)
                             }
                         }
                     } catch (e: RejectedExecutionException) {
+                        pendingSyncExecution.set(false)
                         futureHolder[0]?.let { untrackAndCancel(id, it) }
                     }
                 }
